@@ -20,3 +20,8 @@ output "cluster_name" {
   description = "Kubernetes Cluster Name"
   value       = module.eks.cluster_name
 }
+
+output "kubeconfig_update" {
+  description = "Kubeconfig update with aws CLI"
+  value       = "aws eks --region us-east-2 update-kubeconfig --name=${module.eks.cluster_name}"
+}
