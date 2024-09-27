@@ -15,8 +15,7 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  cluster_prefix = "a13x22"
-  cluster_name = "${local.cluster_prefix}-eks-${random_string.suffix.result}"
+  cluster_name = "${var.cluster_prefix}-eks-${random_string.suffix.result}"
 }
 
 resource "random_string" "suffix" {
@@ -39,6 +38,7 @@ module "vpc" {
   enable_nat_gateway   = true
   single_nat_gateway   = true
   enable_dns_hostnames = true
+  create_egress_only_igw = false
 
   public_subnet_tags = {
     "kubernetes.io/role/elb" = 1
@@ -53,8 +53,8 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.8.5"
 
-  cluster_name    = local.cluster_name
-  cluster_version = "1.29"
+  cluster_name    = "${var.cluster_prefix}"
+  cluster_version = "${var.k8s_version}"
 
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
@@ -75,7 +75,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     one = {
-      name = "${local.cluster_prefix}-node-group-1"
+      # name = "${var.cluster_prefix}-node-group-1"
 
       instance_types = ["t3.xlarge"]
 
@@ -83,8 +83,40 @@ module "eks" {
       max_size     = 1
       desired_size = 1
     }
+
+    bottlerocket_default = {
+      #use_custom_launch_template = false
+      instance_types = ["t3.xlarge"]
+
+      ami_type = "BOTTLEROCKET_x86_64"
+      
+      bootstrap_extra_args = <<-EOT
+        # extra args added
+        [settings.kernel]
+        lockdown = "integrity"
+      EOT
+    }
   }
-}
+    # bottlerocket_default = {
+    #   name = "${var.cluster_prefix}-node-group-2"
+    #   use_custom_launch_template = false
+
+    #   instance_types = ["t3.xlarge"]
+      
+    #   ami_type = "BOTTLEROCKET_x86_64"
+    #   # platform = "bottlerocket"
+
+    #   min_size     = 1
+    #   max_size     = 1
+    #   desired_size = 1
+
+    #   # bootstrap_extra_args = <<-EOT
+    #   #   # extra args added
+    #   #   [settings.kernel]
+    #   #   lockdown = "integrity"
+    #   # EOT
+    # }
+  }
 
 
 # https://aws.amazon.com/blogs/containers/amazon-ebs-csi-driver-is-now-generally-available-in-amazon-eks-add-ons/ 
